@@ -16,7 +16,8 @@
 - (void)resetValues {
     NSUserDefaults *prefs = [[NSUserDefaults alloc] initWithSuiteName:@"com.zilvyn.statusbartune"];
     [prefs setFloat:0 forKey:@"offsetY"];
-    [prefs setFloat:0 forKey:@"iconSpacing"];
+    [prefs setFloat:0 forKey:@"paddingLeft"];
+    [prefs setFloat:0 forKey:@"paddingRight"];
     [prefs synchronize];
     CFNotificationCenterPostNotification(
         CFNotificationCenterGetDarwinNotifyCenter(),
