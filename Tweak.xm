@@ -12,7 +12,6 @@ static CGFloat paddingRight = 0;  // geser ikon (sisi kanan) ke tengah (poin), n
 
 static BOOL isSpringBoard = NO;
 static BOOL bypassFrameHook = NO;
-static BOOL dumpScheduled = NO;
 
 // Referensi lemah ke view status bar supaya bisa di-refresh saat slider digeser
 static NSHashTable *foregroundViews;
@@ -68,8 +67,11 @@ static void applyAll(void) {
 // Tulis struktur view status bar sekali (hanya di SpringBoard, untuk diagnosa)
 static void dumpHierarchy(UIView *view, int depth, NSMutableString *out) {
     NSString *indent = [@"" stringByPaddingToLength:(NSUInteger)depth * 2 withString:@" " startingAtIndex:0];
-    [out appendFormat:@"%@%@ frame=%@ hidden=%d alpha=%.2f\n",
-        indent, NSStringFromClass([view class]), NSStringFromCGRect(view.frame), view.hidden, view.alpha];
+    [out appendFormat:@"%@%@ frame=%@ bounds=%@ center=%@ hidden=%d alpha=%.2f tamic=%d constraints=%lu clips=%d\n",
+        indent, NSStringFromClass([view class]),
+        NSStringFromCGRect(view.frame), NSStringFromCGRect(view.bounds), NSStringFromCGPoint(view.center),
+        view.hidden, view.alpha, view.translatesAutoresizingMaskIntoConstraints,
+        (unsigned long)view.constraints.count, view.clipsToBounds];
     for (UIView *sub in view.subviews) {
         dumpHierarchy(sub, depth + 1, out);
     }
@@ -83,6 +85,11 @@ static void writeDump(void) {
         if (!view.window) continue;
         [text appendFormat:@"=== status bar view #%lu (window=%@)\n",
             (unsigned long)index++, NSStringFromClass([view.window class])];
+        NSValue *base = [baseFrames objectForKey:view];
+        [text appendFormat:@"process=%@ baseFrame=%@ currentFrame=%@ offsetY=%.1f paddingLeft=%.1f paddingRight=%.1f\n",
+            [[NSBundle mainBundle] bundleIdentifier],
+            base ? NSStringFromCGRect(base.CGRectValue) : @"(none)",
+            NSStringFromCGRect(view.frame), offsetY, paddingLeft, paddingRight];
         [text appendString:@"ancestors:\n"];
         for (UIView *parent = view.superview; parent; parent = parent.superview) {
             [text appendFormat:@"  %@ frame=%@\n", NSStringFromClass([parent class]), NSStringFromCGRect(parent.frame)];
@@ -94,13 +101,15 @@ static void writeDump(void) {
         [text appendString:@"no status bar view attached to a window\n"];
     }
     [text writeToFile:kDumpPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    // Salin juga ke clipboard supaya bisa langsung ditempel (aplikasi sandbox tidak bisa menulis file)
+    [UIPasteboard generalPasteboard].string = text;
 }
 
 static void prefsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     dispatch_async(dispatch_get_main_queue(), ^{
         loadPrefs();
         applyAll();
-        if (isSpringBoard) writeDump();
+        writeDump();
     });
 }
 
@@ -124,14 +133,6 @@ static void prefsChanged(CFNotificationCenterRef center, void *observer, CFStrin
     }
     [foregroundViews addObject:self];
     applyFrame(self);
-
-    if (isSpringBoard && !dumpScheduled) {
-        dumpScheduled = YES;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            dumpScheduled = NO;
-            writeDump();
-        });
-    }
 }
 
 %end
