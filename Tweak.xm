@@ -12,6 +12,7 @@ static CGFloat paddingRight = 0;  // geser ikon (sisi kanan) ke tengah (poin), n
 
 static BOOL isSpringBoard = NO;
 static BOOL bypassFrameHook = NO;
+static BOOL dumpScheduled = NO;
 
 // Referensi lemah ke view status bar supaya bisa di-refresh saat slider digeser
 static NSHashTable *foregroundViews;
@@ -74,10 +75,32 @@ static void dumpHierarchy(UIView *view, int depth, NSMutableString *out) {
     }
 }
 
+// Tulis catatan dari semua view status bar yang sedang aktif (induk + susunan anak)
+static void writeDump(void) {
+    NSMutableString *text = [NSMutableString string];
+    NSUInteger index = 0;
+    for (UIView *view in [foregroundViews allObjects]) {
+        if (!view.window) continue;
+        [text appendFormat:@"=== status bar view #%lu (window=%@)\n",
+            (unsigned long)index++, NSStringFromClass([view.window class])];
+        [text appendString:@"ancestors:\n"];
+        for (UIView *parent = view.superview; parent; parent = parent.superview) {
+            [text appendFormat:@"  %@ frame=%@\n", NSStringFromClass([parent class]), NSStringFromCGRect(parent.frame)];
+        }
+        [text appendString:@"tree:\n"];
+        dumpHierarchy(view, 1, text);
+    }
+    if (text.length == 0) {
+        [text appendString:@"no status bar view attached to a window\n"];
+    }
+    [text writeToFile:kDumpPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
 static void prefsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
     dispatch_async(dispatch_get_main_queue(), ^{
         loadPrefs();
         applyAll();
+        if (isSpringBoard) writeDump();
     });
 }
 
@@ -102,17 +125,11 @@ static void prefsChanged(CFNotificationCenterRef center, void *observer, CFStrin
     [foregroundViews addObject:self];
     applyFrame(self);
 
-    if (isSpringBoard) {
-        static dispatch_once_t dumpOnce;
-        dispatch_once(&dumpOnce, ^{
-            __weak UIView *weakSelf = self;
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                UIView *strongSelf = weakSelf;
-                if (!strongSelf) return;
-                NSMutableString *text = [NSMutableString string];
-                dumpHierarchy(strongSelf, 0, text);
-                [text writeToFile:kDumpPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            });
+    if (isSpringBoard && !dumpScheduled) {
+        dumpScheduled = YES;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            dumpScheduled = NO;
+            writeDump();
         });
     }
 }
