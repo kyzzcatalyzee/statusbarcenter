@@ -1,7 +1,7 @@
 Package: com.zilvyn.statusbartune
 Name: StatusBarTune
 Depends: mobilesubstrate, preferenceloader
-Version: 0.0.2
+Version: 0.0.1
 Architecture: iphoneos-arm
 Description: Adjust the status bar height and move the clock and icons toward the center from Settings (iOS 16)
 Maintainer: zilvyn
