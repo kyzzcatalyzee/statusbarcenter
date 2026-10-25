@@ -6,8 +6,9 @@ static CFStringRef const kPrefsChanged = CFSTR("com.zilvyn.statusbartune/prefsch
 static NSString *const kDumpPath = @"/var/mobile/Library/Preferences/StatusBarTune-hierarchy.txt";
 
 static BOOL tweakEnabled = YES;
-static CGFloat offsetY = 0;      // positif = turun, negatif = naik (poin)
-static CGFloat iconSpacing = 0;  // tambahan jarak antar ikon (poin), negatif = lebih rapat
+static CGFloat offsetY = 0;       // positif = turun, negatif = naik (poin)
+static CGFloat paddingLeft = 0;   // geser jam (sisi kiri) ke tengah (poin), negatif = ke tepi
+static CGFloat paddingRight = 0;  // geser ikon (sisi kanan) ke tengah (poin), negatif = ke tepi
 
 static BOOL isSpringBoard = NO;
 static BOOL bypassFrameHook = NO;
@@ -26,7 +27,8 @@ static void loadPrefs(void) {
     id enabledValue = [prefs objectForKey:@"enabled"];
     tweakEnabled = enabledValue ? [enabledValue boolValue] : YES;
     offsetY = [prefs floatForKey:@"offsetY"];
-    iconSpacing = [prefs floatForKey:@"iconSpacing"];
+    paddingLeft = [prefs floatForKey:@"paddingLeft"];
+    paddingRight = [prefs floatForKey:@"paddingRight"];
 }
 
 // Kumpulkan view "item" status bar (jam, ikon pesawat, wifi, baterai, dst.)
@@ -62,8 +64,8 @@ static void applyVertical(UIView *foreground) {
     bypassFrameHook = NO;
 }
 
-// Jarak antar ikon
-static void applySpacing(UIView *foreground) {
+// Jarak ke tengah: jam (kiri) dan ikon (kanan) digeser mendekat atau menjauh dari tengah
+static void applyHorizontal(UIView *foreground) {
     NSMutableArray<UIView *> *items = [NSMutableArray array];
     collectItems(foreground, items);
 
@@ -74,47 +76,28 @@ static void applySpacing(UIView *foreground) {
         }
     }
 
-    CGFloat spacing = tweakEnabled ? iconSpacing : 0;
-    if (spacing == 0 || items.count < 2) return;
+    CGFloat left = tweakEnabled ? paddingLeft : 0;
+    CGFloat right = tweakEnabled ? paddingRight : 0;
+    if (left == 0 && right == 0) return;
 
     CGFloat midX = CGRectGetMidX(foreground.bounds);
-    NSMutableArray<NSDictionary *> *leading = [NSMutableArray array];
-    NSMutableArray<NSDictionary *> *trailing = [NSMutableArray array];
-
     for (UIView *item in items) {
         CGPoint center = [foreground convertPoint:CGPointMake(CGRectGetMidX(item.bounds), CGRectGetMidY(item.bounds))
                                          fromView:item];
-        NSDictionary *entry = @{ @"view": item, @"x": @(center.x) };
         if (center.x < midX) {
-            [leading addObject:entry];
+            // Sisi kiri (jam dan ikon di sebelahnya): geser ke kanan, ke arah tengah
+            item.transform = CGAffineTransformMakeTranslation(left, 0);
         } else {
-            [trailing addObject:entry];
+            // Sisi kanan (pesawat, wifi, baterai): geser ke kiri, ke arah tengah
+            item.transform = CGAffineTransformMakeTranslation(-right, 0);
         }
-    }
-
-    // Sisi kiri: urut dari kiri ke kanan, tiap item bergeser ke kanan sebesar k * spacing
-    [leading sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
-        return [a[@"x"] compare:b[@"x"]];
-    }];
-    for (NSUInteger k = 0; k < leading.count; k++) {
-        UIView *item = leading[k][@"view"];
-        item.transform = CGAffineTransformMakeTranslation(spacing * (CGFloat)k, 0);
-    }
-
-    // Sisi kanan: urut dari kanan ke kiri, tiap item bergeser ke kiri sebesar k * spacing
-    [trailing sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
-        return [b[@"x"] compare:a[@"x"]];
-    }];
-    for (NSUInteger k = 0; k < trailing.count; k++) {
-        UIView *item = trailing[k][@"view"];
-        item.transform = CGAffineTransformMakeTranslation(-spacing * (CGFloat)k, 0);
     }
 }
 
 static void applyStatusBar(UIView *foreground) {
     if (!foreground.window) return;
     applyVertical(foreground);
-    applySpacing(foreground);
+    applyHorizontal(foreground);
 }
 
 static void applyAll(void) {
@@ -204,7 +187,7 @@ static void prefsChanged(CFNotificationCenterRef center, void *observer, CFStrin
     // Status bar sering berubah isinya (ikon muncul/hilang) tanpa layout ulang, jadi segarkan berkala
     dispatch_async(dispatch_get_main_queue(), ^{
         [NSTimer scheduledTimerWithTimeInterval:1.0 repeats:YES block:^(NSTimer *timer) {
-            if (tweakEnabled && iconSpacing != 0) applyAll();
+            if (tweakEnabled && (paddingLeft != 0 || paddingRight != 0)) applyAll();
         }];
     });
 
