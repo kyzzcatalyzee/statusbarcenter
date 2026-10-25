@@ -56,21 +56,49 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
-			<string>Icon Spacing</string>
+			<string>Clock (Left Side)</string>
 			<key>footerText</key>
-			<string>Drag left to bring the status bar icons closer together, right to spread them apart. 0 is the original spacing.</string>
+			<string>Drag right to move the clock toward the center, left to move it back toward the screen edge. 0 is the original position.</string>
 		</dict>
 		<dict>
 			<key>cell</key>
 			<string>PSSliderCell</string>
 			<key>key</key>
-			<string>iconSpacing</string>
+			<string>paddingLeft</string>
 			<key>default</key>
 			<real>0</real>
 			<key>min</key>
-			<real>-4</real>
+			<real>-10</real>
 			<key>max</key>
-			<real>20</real>
+			<real>40</real>
+			<key>showValue</key>
+			<true/>
+			<key>isSegmented</key>
+			<false/>
+			<key>defaults</key>
+			<string>com.zilvyn.statusbartune</string>
+			<key>PostNotification</key>
+			<string>com.zilvyn.statusbartune/prefschanged</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Signal, Wi-Fi, Battery (Right Side)</string>
+			<key>footerText</key>
+			<string>Drag right to move the icons toward the center, left to move them back toward the screen edge. 0 is the original position.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>key</key>
+			<string>paddingRight</string>
+			<key>default</key>
+			<real>0</real>
+			<key>min</key>
+			<real>-10</real>
+			<key>max</key>
+			<real>40</real>
 			<key>showValue</key>
 			<true/>
 			<key>isSegmented</key>
