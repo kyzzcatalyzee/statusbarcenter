@@ -1,0 +1,9 @@
+Package: com.zilvyn.statusbartune
+Name: StatusBarTune
+Depends: mobilesubstrate, preferenceloader
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: Adjust the status bar height and the spacing between its icons from Settings (iOS 16)
+Maintainer: zilvyn
+Author: zilvyn
+Section: Tweaks
